@@ -1,0 +1,8 @@
+.vscode/
+__pycache__/
+results/
+images/
+archive/
+secrets/
+.env
+.coverage

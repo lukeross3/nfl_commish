@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "nfl-commish"
+version = "0.1.0"
+description = "Python package for administrating NFL confidence league: robo commish"
+authors = ["Luke Ross <lukeross@umich.edu>"]
+readme = "README.md"
+packages = [{include = "nfl_commish"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.2.2"
+numpy = "^2.0.1"
+gspread = "^6.1.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.8.0"
+isort = "^5.13.2"
+flake8 = "^7.1.1"
+pytest = "^8.3.2"
+coverage = "^7.6.1"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
