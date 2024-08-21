@@ -5,8 +5,8 @@ from enum import Enum
 from typing import Dict, List, Set
 
 import requests
-from pydantic import BaseModel, field_validator
-from pytz import timezone
+from pydantic import BaseModel, computed_field, field_validator
+from pytz import timezone, utc
 
 
 def get_valid_team_names() -> Set[str]:
@@ -59,7 +59,17 @@ class Game(BaseModel, extra="allow"):
     id: str
     home_team: TeamNameEnum
     away_team: TeamNameEnum
-    commence_time: datetime
+    commence_time: datetime  # In UTC
+
+    @computed_field
+    @property
+    def local_date(self) -> float:  # In EST
+        return self.commence_time.astimezone(timezone("US/Eastern")).date()
+
+    @computed_field
+    @property
+    def local_time(self) -> float:  # In EST
+        return self.commence_time.astimezone(timezone("US/Eastern")).time()
 
     @field_validator("home_team", mode="before")
     @classmethod
@@ -75,6 +85,11 @@ class Game(BaseModel, extra="allow"):
     @classmethod
     def add_tz_to_commence_time(cls, value):
         return add_timezone(date_str=value)
+
+    @field_validator("commence_time", mode="after")
+    @classmethod
+    def as_utc(cls, value):
+        return value.replace(tzinfo=utc)
 
 
 def get_the_odds_json(api_key: str, odds_format: str = "american") -> List[Dict]:
