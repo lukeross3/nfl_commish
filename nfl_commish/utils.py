@@ -5,6 +5,8 @@ from typing import Set
 import yaml
 from pydantic import BaseModel
 
+ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 
 def read_config(config_path: str, config_class: BaseModel) -> BaseModel:
     """Read the yaml config from the config_path and return an instance of the given config_class
