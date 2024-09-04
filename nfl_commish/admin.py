@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import List
 
 import gspread as gs
@@ -181,7 +180,7 @@ def init_week(
     player_names: List[str],
     gspread_secret_path: str,
     the_odds_api_key: str,
-) -> list[datetime]:
+) -> list[Game]:
     # First get this weeks games
     this_weeks_games = parse_the_odds_json(
         get_the_odds_json(api_key=the_odds_api_key, endpoint="events")
@@ -226,8 +225,8 @@ def init_week(
                     f"for week {week_number}:\n\n{str(e)}"
                 )
 
-    # Return the list of unique game commence times
-    return list(set(game.commence_time for game in this_weeks_games))
+    # Return the list of games for downstream use
+    return this_weeks_games
 
 
 def copy_predictions_to_admin(
@@ -256,6 +255,7 @@ def copy_predictions_to_admin(
     df = pd.DataFrame(ws.get_all_records())
 
     # Get the user sheets
+    logger.info(f"Copying week {week_number} picks to admin sheet for games: {game_ids}")
     for player_name in player_names:
         user_sheet_name = f"{player_name} NFL Confidence '24-'25"
         user_sheet = gc.open(user_sheet_name)
@@ -285,6 +285,36 @@ def copy_predictions_to_admin(
             # Update the admin sheet
             ws.update_cell(admin_row_idx + 2, pred_col_idx + 1, pred)
             ws.update_cell(admin_row_idx + 2, conf_col_idx + 1, conf)
+
+
+def update_admin_total_scores_from_week_scores(
+    week_number: int,
+    admin_sheet_name: str,
+    player_names: List[str],
+    gspread_secret_path: str,
+) -> None:
+    """Copy the current point total from the week sheet to the scores/total sheet, within the
+    admin sheet.
+
+    TODO: TEST THIS FUNCTION
+    """
+    # Get the week sheet as a DF
+    gc = gs.service_account(filename=gspread_secret_path)
+    sh = gc.open(admin_sheet_name)
+    worksheet_name = f"Week {week_number}"
+    week_ws = sh.worksheet(worksheet_name)
+    week_df = pd.DataFrame(week_ws.get_all_records())
+
+    # Get the scores sheet as a DF
+    scores_ws = sh.worksheet("Scores")
+    scores_df = pd.DataFrame(scores_ws.get_all_records())
+
+    # For each player, get the sum of their scores for the week
+    for player_name in player_names:
+        week_score = sum(week_df[f"{player_name} Points"])
+        row_idx = week_number + 1
+        col_idx = scores_df.columns.get_loc(player_name) + 1
+        scores_ws.update_cell(row_idx, col_idx, week_score)
 
 
 def update_admin_with_completed_games(
@@ -331,3 +361,11 @@ def update_admin_with_completed_games(
             points_col_idx = df.columns.get_loc(f"{player_name} Points")
             ws.update_cell(row_idx + 2, points_col_idx + 1, points)
             logger.info(f"Updated {player_name} for game {game.id} with {points} points")
+
+    # Copy the current point totals over from the week sheet to the score/totals sheet
+    update_admin_total_scores_from_week_scores(
+        week_number=week_number,
+        admin_sheet_name=admin_sheet_name,
+        player_names=player_names,
+        gspread_secret_path=gspread_secret_path,
+    )
