@@ -1,9 +1,7 @@
 import json
 
-from nfl_commish.admin import (
+from nfl_commish.admin import (  # get_current_week_num,; init_admin_week,
     copy_predictions_to_admin,
-    get_current_week_num,
-    init_admin_week,
 )
 from nfl_commish.game import parse_the_odds_json
 

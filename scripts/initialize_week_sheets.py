@@ -1,5 +1,4 @@
 import argparse
-import json
 import traceback
 from datetime import datetime
 from typing import List, Optional
@@ -53,12 +52,9 @@ def main(config: ScriptParams):
         exit()
 
     # Get this week's games
-    # the_odds_json = get_the_odds_json(api_key=settings.THE_ODDS_API_KEY)
-    with open("tests/assets/events.json", "r") as f:
-        the_odds_json = json.load(f)
+    the_odds_json = get_the_odds_json(api_key=settings.THE_ODDS_API_KEY)
     games = parse_the_odds_json(the_odds_json=the_odds_json)
-    # this_weeks_games = get_this_weeks_games(games=games)
-    this_weeks_games = games[:16]
+    this_weeks_games = get_this_weeks_games(games=games)
 
     # Convert list of games to a pandas DF
     records = [
@@ -109,9 +105,10 @@ def main(config: ScriptParams):
                 ],
             )
             logger.info(f"Successfully updated worksheet '{worksheet_name}' on '{sheet_name}'!")
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"Error updating worksheet '{worksheet_name}' on '{sheet_name}'. Traceback:\n\n{traceback.format_exc()}"
+                f"Error updating worksheet '{worksheet_name}' on '{sheet_name}'. "
+                f"Traceback:\n\n{traceback.format_exc()}"
             )
 
 
