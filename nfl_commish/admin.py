@@ -5,28 +5,56 @@ import gspread as gs
 import pandas as pd
 from gspread_formatting import set_column_widths
 from loguru import logger
-from pydantic import BaseModel, ConfigDict
-from pytz import timezone
 
-from nfl_commish.game import Game, get_the_odds_json, parse_the_odds_json
-from nfl_commish.utils import ALPHABET, str_to_col_width
+from nfl_commish.game import (
+    Game,
+    get_completed_games,
+    get_the_odds_json,
+    parse_the_odds_json,
+)
+from nfl_commish.utils import ALPHABET
 
 
-def get_current_week_num() -> int:
+def get_current_week_num(
+    admin_sheet_name: str,
+    gspread_secret_path: str,
+) -> int:
     """Get the current week number based off the completed games in the admin spreadsheet
 
-    ##### TODO #####
+    Args:
+        admin_sheet_name (str): Name of the admin google sheet
+        gspread_secret_path (str): Path to the gspread secret file
+
+    Returns:
+        int: The current week number
     """
     # Get the names of the admin sheet's worksheets
+    gc = gs.service_account(filename=gspread_secret_path)
+    sh = gc.open(admin_sheet_name)
+    worksheet_names = [ws.title for ws in sh.worksheets()]
 
     # Find the max week number
+    week_numbers = [int(name.split(" ")[1]) for name in worksheet_names if "Week" in name]
+    week_number = max(week_numbers) if week_numbers else 1
 
     # Determine whether all games are completed
-    return 1
+    worksheet_name = f"Week {week_number}"
+    ws = sh.worksheet(worksheet_name)
+    df = pd.DataFrame(ws.get_all_records())
+    winners = df["Winner"].values
+    n_completed = sum([1 for winner in winners if winner])
+
+    # If all games are completed, increment the week number
+    if n_completed == len(winners):
+        week_number += 1
+    return week_number
 
 
 def init_user_week(
-    user_sheet_name: str, this_weeks_games: List[Game], week_number: int, gspread_secret_path: str
+    user_sheet_name: str,
+    this_weeks_games: List[Game],
+    week_number: int,
+    gspread_secret_path: str,
 ) -> None:
     # Convert list of games to a pandas DF
     records = [
@@ -148,15 +176,12 @@ def init_admin_week(
 
 
 def init_week(
-    user_sheet_names: List[str],
+    week_number: int,
     admin_sheet_name: str,
+    player_names: List[str],
     gspread_secret_path: str,
     the_odds_api_key: str,
 ) -> list[datetime]:
-    # Determine the current week number
-    week_number = get_current_week_num()
-    logger.info(f"Initializing week {week_number}")
-
     # First get this weeks games
     this_weeks_games = parse_the_odds_json(
         get_the_odds_json(api_key=the_odds_api_key, endpoint="events")
@@ -164,15 +189,24 @@ def init_week(
     logger.info(f"Got {len(this_weeks_games)} remaining games for week {week_number}")
 
     # Update the admin sheet
-    init_admin_week(
-        admin_sheet_name=admin_sheet_name,
-        this_weeks_games=this_weeks_games,
-        week_number=week_number,
-    )
-    logger.info(f"Updated admin sheet for week {week_number}")
+    try:
+        init_admin_week(
+            admin_sheet_name=admin_sheet_name,
+            this_weeks_games=this_weeks_games,
+            week_number=week_number,
+            gspread_secret_path=gspread_secret_path,
+            player_names=player_names,
+        )
+        logger.info(f"Updated admin sheet for week {week_number}")
+    except Exception as e:
+        if f'A sheet with the name "Week {week_number}" already exists.' in str(e):
+            logger.info(f"Admin sheet for week {week_number} already exists - skipping")
+        else:
+            logger.error(f"Failed to initialize admin sheet for week {week_number}:\n\n{str(e)}")
 
     # Update each of the user sheets
-    for user_sheet_name in user_sheet_names:
+    for player_name in player_names:
+        user_sheet_name = f"{player_name} NFL Confidence '24-'25"
         try:
             init_user_week(
                 user_sheet_name=user_sheet_name,
@@ -182,9 +216,118 @@ def init_week(
             )
             logger.info(f"Updated user sheet {user_sheet_name} for week {week_number}")
         except Exception as e:
-            logger.error(
-                f"Failed to initialize user sheet {user_sheet_name} for week {week_number}:\n\n{str(e)}"
-            )
+            if f'A sheet with the name "Week {week_number}" already exists.' in str(e):
+                logger.info(
+                    f"User sheet {user_sheet_name} for week {week_number} already exists - skipping"
+                )
+            else:
+                logger.error(
+                    f"Failed to initialize user sheet {user_sheet_name} "
+                    f"for week {week_number}:\n\n{str(e)}"
+                )
 
     # Return the list of unique game commence times
     return list(set(game.commence_time for game in this_weeks_games))
+
+
+def copy_predictions_to_admin(
+    week_number: int,
+    admin_sheet_name: str,
+    player_names: List[str],
+    gspread_secret_path: str,
+    game_ids: List[str] = None,
+) -> None:
+    """Copy the predictions from the user sheets to the admin sheet for a given week, keeping
+    existing formatting intact
+
+    Args:
+        week_number (int): The week number to update
+        admin_sheet_name (str): The name of the admin google sheet
+        player_names (List[str]): List of player names
+        gspread_secret_path (str): Path to the gspread secret file
+        game_ids (List[str], optional): List of game IDs to update. If None, all games are updated.
+            Defaults to None.
+    """
+    # Get the admin sheet
+    gc = gs.service_account(filename=gspread_secret_path)
+    sh = gc.open(admin_sheet_name)
+    worksheet_name = f"Week {week_number}"
+    ws = sh.worksheet(worksheet_name)
+    df = pd.DataFrame(ws.get_all_records())
+
+    # Get the user sheets
+    for player_name in player_names:
+        user_sheet_name = f"{player_name} NFL Confidence '24-'25"
+        user_sheet = gc.open(user_sheet_name)
+        user_ws = user_sheet.worksheet(worksheet_name)
+        user_df = pd.DataFrame(user_ws.get_all_records())
+
+        # Find the predicted winner and confidence for each game
+        for _, row in user_df.iterrows():
+            game_id = row["Game ID"]
+
+            # Skip if we are only updating a subset of games
+            if game_ids is not None and game_id not in game_ids:
+                continue
+            pred = row["Predicted Winner"]
+            conf = row["Confidence Rank"]
+
+            # TODO: Add some error handling here
+            if not pred or not conf:
+                logger.warning(f"Player {player_name} missing prediction for game {game_id}")
+                continue
+
+            # Find the row and columns to update in the admin sheet
+            admin_row_idx = df[df["Game ID"] == game_id].index[0]
+            pred_col_idx = df.columns.get_loc(f"{player_name} Predicted")
+            conf_col_idx = df.columns.get_loc(f"{player_name} Confidence")
+
+            # Update the admin sheet
+            ws.update_cell(admin_row_idx + 2, pred_col_idx + 1, pred)
+            ws.update_cell(admin_row_idx + 2, conf_col_idx + 1, conf)
+
+
+def update_admin_with_completed_games(
+    week_number: int,
+    admin_sheet_name: str,
+    player_names: List[str],
+    gspread_secret_path: str,
+    the_odds_api_key: str,
+) -> None:
+    # Get the admin sheet
+    gc = gs.service_account(filename=gspread_secret_path)
+    sh = gc.open(admin_sheet_name)
+    worksheet_name = f"Week {week_number}"
+    ws = sh.worksheet(worksheet_name)
+    df = pd.DataFrame(ws.get_all_records())
+
+    # Find the game IDs from this week that do not yet have a winner
+    to_update = []
+    for _, row in df.iterrows():
+        if not row["Winner"]:
+            to_update.append(row["Game ID"])
+
+    # Get a list of completed games
+    the_odds_json = get_the_odds_json(api_key=the_odds_api_key, endpoint="scores")
+    games = parse_the_odds_json(the_odds_json=the_odds_json)
+    completed_games = get_completed_games(games=games)
+
+    # Keep only those with an ID we want to update
+    completed_games = list(filter(lambda x: x.id in to_update, completed_games))
+
+    # For each game, update the winner and each of the players results
+    for game in completed_games:
+        row_idx = df[df["Game ID"] == game.id].index[0]
+        winner_col_idx = df.columns.get_loc("Winner")
+        ws.update_cell(row_idx + 2, winner_col_idx + 1, game.winner.value)
+
+        # Update each player's points
+        for player_name in player_names:
+            pred = df.iloc[row_idx][f"{player_name} Predicted"]
+            conf = df.iloc[row_idx][f"{player_name} Confidence"]
+            points = 0
+            if pred == game.winner.value:
+                points = conf
+            points_col_idx = df.columns.get_loc(f"{player_name} Points")
+            ws.update_cell(row_idx + 2, points_col_idx + 1, points)
+            logger.info(f"Updated {player_name} for game {game.id} with {points} points")

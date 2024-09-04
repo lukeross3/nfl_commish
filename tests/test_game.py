@@ -4,6 +4,7 @@ import pytest
 
 from nfl_commish.game import (
     convert_team_name,
+    get_completed_games,
     get_the_odds_json,
     get_this_weeks_games,
     parse_the_odds_json,
@@ -125,3 +126,11 @@ def test_get_this_weeks_games_monday(the_odds_events_resp_json, mocker):
     assert len(games) == 272
     this_weeks_games = get_this_weeks_games(games=games)
     assert len(this_weeks_games) == 1  # MNF is the only remaining game
+
+
+def test_get_completed_games(the_odds_scores_resp_json):
+    games = parse_the_odds_json(the_odds_scores_resp_json)
+    assert len(games) == 272
+    games = get_completed_games(games=games)
+    assert len(games) == 1
+    assert games[0].id == "612c2c3f6ca9e10d4b7ead21a2b0ff38"

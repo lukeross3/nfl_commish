@@ -11,3 +11,4 @@
         - Grab commence times and schedule based on this
     - Copy/lock picks 5 mins before each commence time
     - Update scores ~6 hours after each commence time
+    - Schedule each of the above at once on the week start on Tuesday

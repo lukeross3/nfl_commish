@@ -164,3 +164,15 @@ def get_this_weeks_games(games: List[Game]) -> List[Game]:
         after=now,
         before=next_tuesday,
     )
+
+
+def get_completed_games(games: List[Game]) -> List[Game]:
+    """Filter games to only include those which have already completed
+
+    Args:
+        games (List[Game]): List of games
+
+    Returns:
+        List[Game]: Filtered list of games
+    """
+    return [game for game in games if game.completed]
