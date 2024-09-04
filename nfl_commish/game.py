@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -38,13 +38,18 @@ class Game(BaseModel, extra="allow"):
 
     @computed_field
     @property
-    def local_date(self) -> float:  # In EST
+    def local_date(self) -> date:  # In EST
         return self.commence_time.astimezone(timezone("US/Eastern")).date()
 
     @computed_field
     @property
-    def local_time(self) -> float:  # In EST
+    def local_time(self) -> time:  # In EST
         return self.commence_time.astimezone(timezone("US/Eastern")).time()
+
+    @computed_field
+    @property
+    def local_commence_time(self) -> datetime:  # In EST
+        return self.commence_time.astimezone(timezone("US/Eastern"))
 
     @computed_field
     @property

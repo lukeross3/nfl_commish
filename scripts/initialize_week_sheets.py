@@ -34,12 +34,12 @@ def main(config: ScriptParams):
     settings = Settings()
     if config.secret_path is not None:
         secret_path = config.secret_path
-    elif settings.GOOGLE_SHEETS_SECRET_PATH is not None:
-        secret_path = settings.GOOGLE_SHEETS_SECRET_PATH
+    elif settings.google_sheets_secret_path is not None:
+        secret_path = settings.google_sheets_secret_path
     else:
         logger.error(
             "No google sheets path provided. Must pass '--secret_path' arg, set "
-            "'GOOGLE_SHEETS_SECRET_PATH' environment variable, or add to .env file"
+            "'google_sheets_secret_path' environment variable, or add to .env file"
         )
         exit()
 
@@ -52,7 +52,7 @@ def main(config: ScriptParams):
         exit()
 
     # Get this week's games
-    the_odds_json = get_the_odds_json(api_key=settings.THE_ODDS_API_KEY)
+    the_odds_json = get_the_odds_json(api_key=settings.the_odds_api_key)
     games = parse_the_odds_json(the_odds_json=the_odds_json)
     this_weeks_games = get_this_weeks_games(games=games)
 

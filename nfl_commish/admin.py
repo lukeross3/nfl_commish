@@ -9,6 +9,7 @@ from nfl_commish.game import (
     Game,
     get_completed_games,
     get_the_odds_json,
+    get_this_weeks_games,
     is_same_team,
     parse_the_odds_json,
 )
@@ -183,9 +184,9 @@ def init_week(
     the_odds_api_key: str,
 ) -> list[Game]:
     # First get this weeks games
-    this_weeks_games = parse_the_odds_json(
-        get_the_odds_json(api_key=the_odds_api_key, endpoint="events")
-    )
+    the_odds_json = get_the_odds_json(api_key=the_odds_api_key, endpoint="events")
+    games = parse_the_odds_json(the_odds_json=the_odds_json)
+    this_weeks_games = get_this_weeks_games(games=games)
     logger.info(f"Got {len(this_weeks_games)} remaining games for week {week_number}")
 
     # Update the admin sheet

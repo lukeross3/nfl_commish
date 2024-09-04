@@ -7,8 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Settings values
-    THE_ODDS_API_KEY: SecretStr
-    GOOGLE_SHEETS_SECRET_PATH: Optional[str]
+    the_odds_api_key: SecretStr
+    google_sheets_secret_path: Optional[str]
     copy_timedelta: timedelta = timedelta(minutes=5)
     scoring_timedelta: timedelta = timedelta(hours=5)
     max_weeks: int = 18

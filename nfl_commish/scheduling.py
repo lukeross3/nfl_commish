@@ -45,9 +45,9 @@ def schedule_commish_tasks(
     # Get a map from game start times to game IDs
     start_to_id_map = {}
     for game in this_weeks_games:
-        if game.start_time not in start_to_id_map:
-            start_to_id_map[game.start_time] = []
-        start_to_id_map[game.start_time].append(game.game_id)
+        if game.local_commence_time not in start_to_id_map:
+            start_to_id_map[game.local_commence_time] = []
+        start_to_id_map[game.local_commence_time].append(game.id)
 
     # Schedule the tasks to copy predictions to the admin sheet for each unique start time
     for start_time, game_ids in start_to_id_map.items():
@@ -71,7 +71,7 @@ def schedule_commish_tasks(
     # Get a set of unique start times, rounding to the nearest hour to reduce frequency
     rounded_start_times = set()
     for game in this_weeks_games:
-        rounded_start_times.add(game.start_time.replace(minute=0, second=0, microsecond=0))
+        rounded_start_times.add(game.local_commence_time.replace(minute=0, second=0, microsecond=0))
 
     # Schedule the tasks to update the admin sheet with completed games for each rounded start time
     logger.info(f"Scheduling tasks to update scores {scoring_timedelta} after kickoff")
