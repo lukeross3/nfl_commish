@@ -7,6 +7,7 @@ from nfl_commish.game import (
     get_completed_games,
     get_the_odds_json,
     get_this_weeks_games,
+    is_same_team,
     parse_the_odds_json,
 )
 
@@ -134,3 +135,13 @@ def test_get_completed_games(the_odds_scores_resp_json):
     games = get_completed_games(games=games)
     assert len(games) == 1
     assert games[0].id == "612c2c3f6ca9e10d4b7ead21a2b0ff38"
+
+
+def test_is_same_team():
+    assert is_same_team("new-orleans-saints", "new-orleans-saints")
+    assert is_same_team("new-orleans-saints", "New-Orleans-SAINTS")  # Ignore case
+    assert is_same_team("new-orleans-saints", " new-orleans-saints  ")  # Ignore whitespace
+    assert is_same_team("new-orleans-saints", "new orleans  saints")  # Ignore whitespace
+    assert not is_same_team("new-orleans-saints", "new-england-patriots")
+    assert not is_same_team("new-orleans-saints", "new-orleans-saints-2")
+    assert not is_same_team("new-orleans-saints", "new-orleans-saint")

@@ -9,6 +9,7 @@ from nfl_commish.game import (
     Game,
     get_completed_games,
     get_the_odds_json,
+    is_same_team,
     parse_the_odds_json,
 )
 from nfl_commish.utils import ALPHABET
@@ -353,11 +354,24 @@ def update_admin_with_completed_games(
 
         # Update each player's points
         for player_name in player_names:
+
+            # Get the point value
             pred = df.iloc[row_idx][f"{player_name} Predicted"]
             conf = df.iloc[row_idx][f"{player_name} Confidence"]
             points = 0
-            if pred == game.winner.value:
+            if is_same_team(pred, game.winner.value):
                 points = conf
+
+            # Log an error if the prediction matches neither team
+            matches_home = is_same_team(pred, game.home_team.value)
+            matches_away = is_same_team(pred, game.away_team.value)
+            if not (matches_home or matches_away):
+                logger.error(
+                    f"Player {player_name} predicted '{pred}' for game {game.id}, which does not "
+                    f"match home '{game.home_team.value}' or away '{game.away_team.value}'"
+                )
+
+            # Update the points in the admin sheet
             points_col_idx = df.columns.get_loc(f"{player_name} Points")
             ws.update_cell(row_idx + 2, points_col_idx + 1, points)
             logger.info(f"Updated {player_name} for game {game.id} with {points} points")

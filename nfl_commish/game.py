@@ -176,3 +176,16 @@ def get_completed_games(games: List[Game]) -> List[Game]:
         List[Game]: Filtered list of games
     """
     return [game for game in games if game.completed]
+
+
+def is_same_team(team1: str, team2: str) -> bool:
+    """Check if two team names are the same
+
+    Args:
+        team1 (str): First team name
+        team2 (str): Second team name
+
+    Returns:
+        bool: True if the team names are the same, False otherwise
+    """
+    return convert_team_name(team1) == convert_team_name(team2)

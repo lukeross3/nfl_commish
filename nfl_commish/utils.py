@@ -46,7 +46,8 @@ def convert_team_name(name: str) -> str:
     Returns:
         str: Standardized valid team name
     """
-    return name.lower().replace(" ", "-")
+    words = name.lower().strip().replace("-", " ").split()
+    return "-".join(words)
 
 
 def add_timezone(date_str: str) -> str:
