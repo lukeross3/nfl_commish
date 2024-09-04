@@ -1,50 +1,13 @@
-import json
-import os
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Set
+from typing import Dict, List, Optional
 
 import requests
+from loguru import logger
 from pydantic import BaseModel, computed_field, field_validator
 from pytz import timezone, utc
 
-
-def get_valid_team_names() -> Set[str]:
-    """Return a set containing all valid team names
-
-    Returns:
-        Set[str]: A set of all valid team names
-    """
-    current_file = os.path.abspath(__file__)
-    current_dir = os.path.dirname(current_file)
-    file_path = os.path.join(current_dir, "assets", "team_names.json")
-    with open(file_path, "r") as f:
-        name_map = json.load(f)
-    return set(name_map)
-
-
-def convert_team_name(name: str) -> str:
-    """Convert The Odds team name to standardized valid team name
-
-    Args:
-        name (str): The Odds formatted team name
-
-    Returns:
-        str: Standardized valid team name
-    """
-    return name.lower().replace(" ", "-")
-
-
-def add_timezone(date_str: str) -> str:
-    """Adds the timezone to a date string from the-odds API
-
-    Args:
-        date_str (str): Input date string from the-odds API
-
-    Returns:
-        str: Modified date string with time zone
-    """
-    return date_str.replace("Z", "+00:00")
+from nfl_commish.utils import add_timezone, convert_team_name, get_valid_team_names
 
 
 # Create an enum of valid team names
@@ -55,11 +18,23 @@ class StrEnum(str, Enum):
 TeamNameEnum = StrEnum("TeamNameEnum", [(name, name) for name in get_valid_team_names()])
 
 
+class TeamScore(BaseModel):
+    name: TeamNameEnum
+    score: int
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def convert_to_valid_team_name(cls, value):
+        return convert_team_name(name=value)
+
+
 class Game(BaseModel, extra="allow"):
     id: str
     home_team: TeamNameEnum
     away_team: TeamNameEnum
     commence_time: datetime  # In UTC
+    completed: Optional[bool] = None
+    scores: Optional[List[TeamScore]] = None
 
     @computed_field
     @property
@@ -71,12 +46,14 @@ class Game(BaseModel, extra="allow"):
     def local_time(self) -> float:  # In EST
         return self.commence_time.astimezone(timezone("US/Eastern")).time()
 
-    @field_validator("home_team", mode="before")
-    @classmethod
-    def convert_home_to_valid_team_name(cls, value):
-        return convert_team_name(name=value)
+    @computed_field
+    @property
+    def winner(self) -> Optional[TeamNameEnum]:
+        if self.completed and self.scores is not None:
+            return max(self.scores, key=lambda x: x.score).name
+        return None
 
-    @field_validator("away_team", mode="before")
+    @field_validator("home_team", "away_team", mode="before")
     @classmethod
     def convert_away_to_valid_team_name(cls, value):
         return convert_team_name(name=value)
@@ -92,26 +69,41 @@ class Game(BaseModel, extra="allow"):
         return value.replace(tzinfo=utc)
 
 
-def get_the_odds_json(api_key: str, odds_format: str = "american") -> List[Dict]:
+def get_the_odds_json(api_key: str, endpoint: str) -> List[Dict]:
     """Make request to the-odds API for bookmaker odds
 
     Args:
         api_key (str): The-odds API key
-        odds_format (str, optional): Format for odds, one of "american" or "decimal" All downstream
-        functions require "american" format. Defaults to "american".
+        endpoint (str): The API endpoint to hit. Must be one of 'events' or 'scores'
 
     Returns:
         List[Dict]: The-odds response JSON
     """
-    url = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/"
+    # Validate the input
+    if endpoint not in ["events", "scores"]:
+        raise ValueError(f"Endpoint must be one of 'events' or 'scores', got '{endpoint}'")
+
+    # Send the request
+    url = f"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/{endpoint}/"
     params = {
         "regions": "us",
         "apiKey": api_key,
-        "markets": "h2h",
-        "oddsFormat": odds_format,
     }
+    if endpoint == "scores":
+        params["daysFrom"] = 3
     resp = requests.get(url, params)
     resp.raise_for_status()
+
+    # Log API quota from headers
+    requests_used = resp.headers["x-requests-used"]
+    requests_remaining = resp.headers["x-requests-remaining"]
+    used_by_last_call = resp.headers["x-requests-last"]
+    logger.info(
+        f"Hit '{endpoint}' endpoint - {requests_used} requests used, {requests_remaining} "
+        f"remaining, {used_by_last_call} used by last call"
+    )
+
+    # Return the JSON response
     return resp.json()
 
 
