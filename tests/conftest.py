@@ -8,14 +8,14 @@ import pytest
 def the_odds_scores_file_path():
     current_file = os.path.abspath(__file__)
     current_dir = os.path.dirname(current_file)
-    return os.path.join(current_dir, os.pardir, "assets", "scores.json")
+    return os.path.join(current_dir, "assets", "scores.json")
 
 
 @pytest.fixture
 def the_odds_events_file_path():
     current_file = os.path.abspath(__file__)
     current_dir = os.path.dirname(current_file)
-    return os.path.join(current_dir, os.pardir, "assets", "events.json")
+    return os.path.join(current_dir, "assets", "events.json")
 
 
 @pytest.fixture

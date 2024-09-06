@@ -12,8 +12,9 @@ from nfl_commish.game import (
     get_this_weeks_games,
     is_same_team,
     parse_the_odds_json,
+    str_match_team_name,
 )
-from nfl_commish.utils import ALPHABET
+from nfl_commish.utils import ALPHABET, catch_with_logging
 
 
 def get_current_week_num(
@@ -273,6 +274,14 @@ def copy_predictions_to_admin(
                 continue
             pred = row["Predicted Winner"]
             conf = row["Confidence Rank"]
+            home_team = row["Home Team"]
+            away_team = row["Away Team"]
+
+            # Classify the user's pick into one of the 2 standardized team names
+            pred = catch_with_logging(
+                fn=str_match_team_name,
+                args={"str_to_classify": pred, "candidate_labels": [home_team, away_team]},
+            )
 
             # TODO: Add some error handling here
             if not pred or not conf:
@@ -356,21 +365,21 @@ def update_admin_with_completed_games(
         # Update each player's points
         for player_name in player_names:
 
-            # Get the point value
+            # Classify the user's pick into one of the 2 standardized team names
             pred = df.iloc[row_idx][f"{player_name} Predicted"]
             conf = df.iloc[row_idx][f"{player_name} Confidence"]
-            points = 0
-            if is_same_team(pred, game.winner.value):
-                points = conf
+            pred = catch_with_logging(
+                fn=str_match_team_name,
+                args={
+                    "str_to_classify": pred,
+                    "candidate_labels": [game.home_team.value, game.away_team.value],
+                },
+            )
 
-            # Log an error if the prediction matches neither team
-            matches_home = is_same_team(pred, game.home_team.value)
-            matches_away = is_same_team(pred, game.away_team.value)
-            if not (matches_home or matches_away):
-                logger.error(
-                    f"Player {player_name} predicted '{pred}' for game {game.id}, which does not "
-                    f"match home '{game.home_team.value}' or away '{game.away_team.value}'"
-                )
+            # Get the point value
+            points = 0
+            if pred is not None and is_same_team(pred, game.winner.value):
+                points = conf
 
             # Update the points in the admin sheet
             points_col_idx = df.columns.get_loc(f"{player_name} Points")

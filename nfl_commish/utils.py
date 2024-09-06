@@ -1,8 +1,10 @@
 import json
 import os
-from typing import Set
+import traceback
+from typing import Any, Callable, Dict, Set
 
 import yaml
+from loguru import logger
 from pydantic import BaseModel
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -60,3 +62,10 @@ def add_timezone(date_str: str) -> str:
         str: Modified date string with time zone
     """
     return date_str.replace("Z", "+00:00")
+
+
+def catch_with_logging(fn: Callable, args: Dict, error_log_template: str = "{}") -> Any:
+    try:
+        return fn(**args)
+    except Exception:
+        logger.error(error_log_template.format(traceback.format_exc()))
