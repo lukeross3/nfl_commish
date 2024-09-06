@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timedelta
 from enum import Enum
 from typing import Dict, List, Optional
 
+import numpy as np
 import requests
 from loguru import logger
 from pydantic import BaseModel, computed_field, field_validator
@@ -184,7 +185,8 @@ def get_completed_games(games: List[Game]) -> List[Game]:
 
 
 def is_same_team(team1: str, team2: str) -> bool:
-    """Check if two team names are the same
+    """Check if two team names are the same. If they share any words, they are the same (e.g.
+    'Patriots' == 'new-england-patriots')
 
     Args:
         team1 (str): First team name
@@ -193,4 +195,21 @@ def is_same_team(team1: str, team2: str) -> bool:
     Returns:
         bool: True if the team names are the same, False otherwise
     """
-    return convert_team_name(team1) == convert_team_name(team2)
+    ignore_words = {"new", "san", "las", "los", "city", "bay"}
+    team1_words = set(convert_team_name(team1).split("-")) - ignore_words
+    team2_words = set(convert_team_name(team2).split("-")) - ignore_words
+    return len(team1_words.intersection(team2_words)) > 0
+
+
+def str_match_team_name(str_to_classify: str, candidate_labels: List[str]) -> str:
+    matches = [is_same_team(team1=str_to_classify, team2=cand) for cand in candidate_labels]
+    n_matches = sum(matches)
+    if n_matches == 1:  # Exactly one of the candidates match
+        top_idx = np.argmax(matches)
+        return candidate_labels[top_idx]
+
+    # Otherwise, raise a ValueError
+    raise ValueError(
+        f"Failed to classify '{str_to_classify}' into {candidate_labels} - matched "
+        f"{n_matches} candidates"
+    )

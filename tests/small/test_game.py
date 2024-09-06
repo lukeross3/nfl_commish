@@ -9,7 +9,9 @@ from nfl_commish.game import (
     get_this_weeks_games,
     is_same_team,
     parse_the_odds_json,
+    str_match_team_name,
 )
+from nfl_commish.utils import get_valid_team_names
 
 
 def test_convert_team_name():
@@ -142,6 +144,58 @@ def test_is_same_team():
     assert is_same_team("new-orleans-saints", "New-Orleans-SAINTS")  # Ignore case
     assert is_same_team("new-orleans-saints", " new-orleans-saints  ")  # Ignore whitespace
     assert is_same_team("new-orleans-saints", "new orleans  saints")  # Ignore whitespace
+    assert is_same_team("new-orleans-saints", "saints")
     assert not is_same_team("new-orleans-saints", "new-england-patriots")
-    assert not is_same_team("new-orleans-saints", "new-orleans-saints-2")
-    assert not is_same_team("new-orleans-saints", "new-orleans-saint")
+    assert is_same_team("new-orleans-saints", "new-orleans-saints-2")
+
+
+def test_str_match_team_name():
+
+    # Get lists of team names and their cities
+    team_names = sorted(list(get_valid_team_names()))
+    mascots, cities = [], []
+    for team_name in team_names:
+        words = team_name.split("-")
+        mascots.append(words.pop())
+        cities.append(" ".join(words))
+
+    # Test every pair of teams, both mascot and city
+    n_tested = 0
+    for team_name, mascot, city in zip(team_names, mascots, cities):
+        for opposing_team in team_names:
+
+            # Don't test team against itself
+            if opposing_team == team_name:
+                continue
+
+            # Test the mascot name
+            assert (
+                str_match_team_name(
+                    str_to_classify=mascot,
+                    candidate_labels=[team_name, opposing_team],
+                )
+                == team_name
+            )
+            n_tested += 1
+
+            # Skip city only if 2 teams from the same city
+            if city.replace(" ", "-") in opposing_team:
+                continue
+
+            # Test the city name
+            assert (
+                str_match_team_name(
+                    str_to_classify=city,
+                    candidate_labels=[team_name, opposing_team],
+                )
+                == team_name
+            )
+            n_tested += 1
+    assert n_tested == 1980
+
+
+def test_str_match_same_team_name():
+    with pytest.raises(ValueError):
+        str_match_team_name("los angeles", ["los-angeles-chargers", "los-angeles-rams"])
+    with pytest.raises(ValueError):
+        str_match_team_name("new-york", ["new-york-jets", "new-york-giants"])
