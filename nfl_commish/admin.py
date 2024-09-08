@@ -14,7 +14,10 @@ from nfl_commish.game import (
     parse_the_odds_json,
     str_match_team_name,
 )
+from nfl_commish.settings import Settings
 from nfl_commish.utils import ALPHABET, catch_with_logging
+
+settings = Settings()
 
 
 def get_current_week_num(
@@ -278,20 +281,29 @@ def copy_predictions_to_admin(
             away_team = row["Away Team"]
 
             # Classify the user's pick into one of the 2 standardized team names
-            pred = catch_with_logging(
-                fn=str_match_team_name,
-                args={"str_to_classify": pred, "candidate_labels": [home_team, away_team]},
-            )
-
-            # TODO: Add some error handling here
             if not pred or not conf:
                 logger.warning(f"Player {player_name} missing prediction for game {game_id}")
-                continue
+                pred = settings.missed_pred_str
+                conf = 0
+            else:
+                pred = catch_with_logging(
+                    fn=str_match_team_name,
+                    args={"str_to_classify": pred, "candidate_labels": [home_team, away_team]},
+                )
 
             # Find the row and columns to update in the admin sheet
             admin_row_idx = df[df["Game ID"] == game_id].index[0]
             pred_col_idx = df.columns.get_loc(f"{player_name} Predicted")
             conf_col_idx = df.columns.get_loc(f"{player_name} Confidence")
+
+            # Check for existing values
+            existing_pred = df.iloc[admin_row_idx][f"{player_name} Predicted"]
+            existing_conf = df.iloc[admin_row_idx][f"{player_name} Confidence"]
+            if existing_pred or existing_conf:
+                logger.info(
+                    f"Player {player_name} already has a prediction for game {game_id} - skipping"
+                )
+                continue
 
             # Update the admin sheet
             ws.update_cell(admin_row_idx + 2, pred_col_idx + 1, pred)
@@ -322,7 +334,9 @@ def update_admin_total_scores_from_week_scores(
 
     # For each player, get the sum of their scores for the week
     for player_name in player_names:
-        week_score = sum(week_df[f"{player_name} Points"])
+        week_score = pd.to_numeric(
+            week_df[f"{player_name} Points"], errors="coerce", downcast="integer"
+        ).sum()
         row_idx = week_number + 1
         col_idx = scores_df.columns.get_loc(player_name) + 1
         scores_ws.update_cell(row_idx, col_idx, week_score)
@@ -355,6 +369,7 @@ def update_admin_with_completed_games(
 
     # Keep only those with an ID we want to update
     completed_games = list(filter(lambda x: x.id in to_update, completed_games))
+    logger.info(f"Updating {len(completed_games)} games for week {week_number}")
 
     # For each game, update the winner and each of the players results
     for game in completed_games:
@@ -368,13 +383,17 @@ def update_admin_with_completed_games(
             # Classify the user's pick into one of the 2 standardized team names
             pred = df.iloc[row_idx][f"{player_name} Predicted"]
             conf = df.iloc[row_idx][f"{player_name} Confidence"]
-            pred = catch_with_logging(
-                fn=str_match_team_name,
-                args={
-                    "str_to_classify": pred,
-                    "candidate_labels": [game.home_team.value, game.away_team.value],
-                },
-            )
+            if not pred or not conf:
+                logger.warning(f"Player {player_name} missing prediction for game {game.id}")
+                pred = settings.missed_pred_str
+            else:
+                pred = catch_with_logging(
+                    fn=str_match_team_name,
+                    args={
+                        "str_to_classify": pred,
+                        "candidate_labels": [game.home_team.value, game.away_team.value],
+                    },
+                )
 
             # Get the point value
             points = 0

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     copy_timedelta: timedelta = timedelta(minutes=5)
     scoring_timedelta: timedelta = timedelta(hours=5)
     max_weeks: int = 18
+    missed_pred_str: str = "missed"
 
     # Settings config
     model_config = SettingsConfigDict(extra="ignore", env_file=".env")
