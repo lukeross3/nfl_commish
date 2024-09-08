@@ -51,6 +51,9 @@ def schedule_commish_tasks(
 
     # Schedule the tasks to copy predictions to the admin sheet for each unique start time
     for start_time, game_ids in start_to_id_map.items():
+        if start_time < datetime.now():  # Skip if trigger would be in the past
+            logger.info(f"Games {game_ids} already started - skipping")
+            continue
         date_trigger = DateTrigger(start_time - copy_timedelta)
         scheduler.add_job(
             copy_predictions_to_admin,
@@ -76,6 +79,8 @@ def schedule_commish_tasks(
     # Schedule the tasks to update the admin sheet with completed games for each rounded start time
     logger.info(f"Scheduling tasks to update scores {scoring_timedelta} after kickoff")
     for start_time in rounded_start_times:
+        if start_time + scoring_timedelta < datetime.now():  # Skip if trigger would be in the past
+            continue
         date_trigger = DateTrigger(start_time + scoring_timedelta)
         scheduler.add_job(
             update_admin_with_completed_games,
