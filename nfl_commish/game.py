@@ -196,8 +196,11 @@ def is_same_team(team1: str, team2: str) -> bool:
         bool: True if the team names are the same, False otherwise
     """
     ignore_words = {"new", "san", "las", "los", "city", "bay"}
+    synonyms = {"fran": "francisco", "buccs": "buccaneers"}
     team1_words = set(convert_team_name(team1).split("-")) - ignore_words
     team2_words = set(convert_team_name(team2).split("-")) - ignore_words
+    team1_words = {synonyms.get(word, word) for word in team1_words}
+    team2_words = {synonyms.get(word, word) for word in team2_words}
     return len(team1_words.intersection(team2_words)) > 0
 
 
