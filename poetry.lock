@@ -637,9 +637,9 @@ files = [
 
 [package.dependencies]
 numpy = [
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
     {version = ">=1.22.4", markers = "python_version < \"3.11\""},
     {version = ">=1.23.2", markers = "python_version == \"3.11\""},
-    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -770,8 +770,8 @@ files = [
 annotated-types = ">=0.6.0"
 pydantic-core = "2.23.3"
 typing-extensions = [
-    {version = ">=4.6.1", markers = "python_version < \"3.13\""},
     {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
+    {version = ">=4.6.1", markers = "python_version < \"3.13\""},
 ]
 
 [package.extras]
@@ -1128,6 +1128,22 @@ files = [
 ]
 
 [[package]]
+name = "tenacity"
+version = "9.0.0"
+description = "Retry code until it succeeds"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "tenacity-9.0.0-py3-none-any.whl", hash = "sha256:93de0c98785b27fcf659856aa9f54bfbd399e29969b0621bc7f762bd441b4539"},
+    {file = "tenacity-9.0.0.tar.gz", hash = "sha256:807f37ca97d62aa361264d497b0e31e92b8027044942bfa756160d908320d73b"},
+]
+
+[package.extras]
+doc = ["reno", "sphinx"]
+test = ["pytest", "tornado (>=4.5)", "typeguard"]
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -1217,4 +1233,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "ffc794397b11759622aebab7bb479cae824d98cd90d677148ceed3d70a81234b"
+content-hash = "8cbe0536993509a4a3a55666ded2806796c7a2b7d01db440808603c2ec49eaf2"

@@ -3,11 +3,26 @@ import os
 import traceback
 from typing import Any, Callable, Dict, Set
 
+from tenacity import retry, wait_exponential
+import gspread
 import yaml
 from loguru import logger
 from pydantic import BaseModel
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+@retry(wait=wait_exponential(max=90))
+def update_cell(ws: gspread.worksheet, row: int, col: int, value: Any) -> None:
+    """Update a cell value, with retries to avoid write rate limiting
+
+    Args:
+        ws (gspread.worksheet): gspread worksheet object
+        row (int): Row index to update
+        col (int): Column index to update
+        value (Any): Value to insert
+    """
+    ws.update_cell(row, col, value)
 
 
 def read_config(config_path: str, config_class: BaseModel) -> BaseModel:

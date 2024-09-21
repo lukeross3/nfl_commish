@@ -35,8 +35,5 @@ schedule_commish_tasks(
 )
 
 # Wait for all jobs to complete
-while len(scheduler.get_jobs()) > 0:
+while True:
     time.sleep(1)
-
-# If we made it here, the season is over!
-logger.warning("No more scheduled tasks, the season is over!")

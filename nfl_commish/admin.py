@@ -15,7 +15,7 @@ from nfl_commish.game import (
     str_match_team_name,
 )
 from nfl_commish.settings import Settings
-from nfl_commish.utils import ALPHABET, catch_with_logging
+from nfl_commish.utils import ALPHABET, catch_with_logging, update_cell
 
 settings = Settings()
 
@@ -306,8 +306,8 @@ def copy_predictions_to_admin(
                 continue
 
             # Update the admin sheet
-            ws.update_cell(admin_row_idx + 2, pred_col_idx + 1, pred)
-            ws.update_cell(admin_row_idx + 2, conf_col_idx + 1, conf)
+            update_cell(ws, admin_row_idx + 2, pred_col_idx + 1, pred)
+            update_cell(ws, admin_row_idx + 2, conf_col_idx + 1, conf)
 
 
 def update_admin_total_scores_from_week_scores(
@@ -339,7 +339,7 @@ def update_admin_total_scores_from_week_scores(
         ).sum()
         row_idx = week_number + 1
         col_idx = scores_df.columns.get_loc(player_name) + 1
-        scores_ws.update_cell(row_idx, col_idx, week_score)
+        update_cell(scores_ws, row_idx, col_idx, week_score)
 
 
 def update_admin_with_completed_games(
@@ -375,7 +375,7 @@ def update_admin_with_completed_games(
     for game in completed_games:
         row_idx = df[df["Game ID"] == game.id].index[0]
         winner_col_idx = df.columns.get_loc("Winner")
-        ws.update_cell(row_idx + 2, winner_col_idx + 1, game.winner.value)
+        update_cell(ws, row_idx + 2, winner_col_idx + 1, game.winner.value)
 
         # Update each player's points
         for player_name in player_names:
@@ -398,11 +398,11 @@ def update_admin_with_completed_games(
             # Get the point value
             points = 0
             if pred is not None and is_same_team(pred, game.winner.value):
-                points = conf
+                points = int(conf)
 
             # Update the points in the admin sheet
             points_col_idx = df.columns.get_loc(f"{player_name} Points")
-            ws.update_cell(row_idx + 2, points_col_idx + 1, points)
+            update_cell(ws, row_idx + 2, points_col_idx + 1, points)
             logger.info(f"Updated {player_name} for game {game.id} with {points} points")
 
     # Copy the current point totals over from the week sheet to the score/totals sheet
