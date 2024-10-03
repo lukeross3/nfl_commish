@@ -1,7 +1,6 @@
 import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from loguru import logger
 
 from nfl_commish.scheduling import schedule_commish_tasks
 from nfl_commish.settings import Settings

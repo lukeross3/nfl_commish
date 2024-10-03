@@ -1,3 +1,4 @@
+import traceback
 from typing import List
 
 import gspread as gs
@@ -228,7 +229,8 @@ def init_week(
             else:
                 logger.error(
                     f"Failed to initialize user sheet {user_sheet_name} "
-                    f"for week {week_number}:\n\n{str(e)}"
+                    f"for week {week_number}:\n\n{str(e)}. "
+                    f"Traceback:\n\n{traceback.format_exc()}"
                 )
 
     # Return the list of games for downstream use
@@ -337,6 +339,7 @@ def update_admin_total_scores_from_week_scores(
         week_score = pd.to_numeric(
             week_df[f"{player_name} Points"], errors="coerce", downcast="integer"
         ).sum()
+        week_score = int(week_score)  # Cast from int64
         row_idx = week_number + 1
         col_idx = scores_df.columns.get_loc(player_name) + 1
         update_cell(scores_ws, row_idx, col_idx, week_score)

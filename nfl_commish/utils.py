@@ -1,18 +1,23 @@
 import json
+import logging
 import os
 import traceback
 from typing import Any, Callable, Dict, Set
 
-from tenacity import retry, wait_exponential
 import gspread
 import yaml
 from loguru import logger
 from pydantic import BaseModel
+from tenacity import after_log, before_sleep_log, retry, wait_exponential
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
-@retry(wait=wait_exponential(max=90))
+@retry(
+    wait=wait_exponential(max=90),
+    before_sleep=before_sleep_log(logger, logging.INFO),
+    after=after_log(logger, logging.INFO),
+)
 def update_cell(ws: gspread.worksheet, row: int, col: int, value: Any) -> None:
     """Update a cell value, with retries to avoid write rate limiting
 
