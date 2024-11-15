@@ -1,7 +1,6 @@
 import traceback
 from typing import List
 
-import gspread as gs
 import pandas as pd
 from gspread_formatting import set_column_widths
 from loguru import logger
@@ -16,7 +15,13 @@ from nfl_commish.game import (
     str_match_team_name,
 )
 from nfl_commish.settings import Settings
-from nfl_commish.utils import ALPHABET, catch_with_logging, update_cell
+from nfl_commish.utils import (
+    ALPHABET,
+    catch_with_logging,
+    open_sheet,
+    read_worksheet_as_df,
+    update_cell,
+)
 
 settings = Settings()
 
@@ -35,8 +40,7 @@ def get_current_week_num(
         int: The current week number
     """
     # Get the names of the admin sheet's worksheets
-    gc = gs.service_account(filename=gspread_secret_path)
-    sh = gc.open(admin_sheet_name)
+    sh = open_sheet(gspread_secret_path=gspread_secret_path, sheet_name=admin_sheet_name)
     worksheet_names = [ws.title for ws in sh.worksheets()]
 
     # Find the max week number
@@ -79,8 +83,7 @@ def init_user_week(
     df = pd.DataFrame(records)
 
     # Get spreadsheet object
-    gc = gs.service_account(filename=gspread_secret_path)
-    sh = gc.open(user_sheet_name)
+    sh = open_sheet(gspread_secret_path=gspread_secret_path, sheet_name=user_sheet_name)
 
     # Write pandas DF to google sheets
     worksheet_name = f"Week {week_number}"
@@ -136,8 +139,7 @@ def init_admin_week(
         df[f"{player_name} Points"] = ""
 
     # Get spreadsheet object
-    gc = gs.service_account(filename=gspread_secret_path)
-    sh = gc.open(admin_sheet_name)
+    sh = open_sheet(gspread_secret_path=gspread_secret_path, sheet_name=admin_sheet_name)
 
     # Write pandas DF to google sheets
     worksheet_name = f"Week {week_number}"
@@ -256,8 +258,7 @@ def copy_predictions_to_admin(
             Defaults to None.
     """
     # Get the admin sheet
-    gc = gs.service_account(filename=gspread_secret_path)
-    sh = gc.open(admin_sheet_name)
+    sh = open_sheet(gspread_secret_path=gspread_secret_path, sheet_name=admin_sheet_name)
     worksheet_name = f"Week {week_number}"
     ws = sh.worksheet(worksheet_name)
     df = pd.DataFrame(ws.get_all_records())
@@ -266,9 +267,11 @@ def copy_predictions_to_admin(
     logger.info(f"Copying week {week_number} picks to admin sheet for games: {game_ids}")
     for player_name in player_names:
         user_sheet_name = f"{player_name} NFL Confidence '24-'25"
-        user_sheet = gc.open(user_sheet_name)
-        user_ws = user_sheet.worksheet(worksheet_name)
-        user_df = pd.DataFrame(user_ws.get_all_records())
+        user_df = read_worksheet_as_df(
+            gspread_secret_path=gspread_secret_path,
+            sheet_name=user_sheet_name,
+            worksheet_name=worksheet_name,
+        )
 
         # Find the predicted winner and confidence for each game
         for _, row in user_df.iterrows():
@@ -324,15 +327,21 @@ def update_admin_total_scores_from_week_scores(
     TODO: TEST THIS FUNCTION
     """
     # Get the week sheet as a DF
-    gc = gs.service_account(filename=gspread_secret_path)
-    sh = gc.open(admin_sheet_name)
     worksheet_name = f"Week {week_number}"
-    week_ws = sh.worksheet(worksheet_name)
-    week_df = pd.DataFrame(week_ws.get_all_records())
+    week_df = read_worksheet_as_df(
+        gspread_secret_path=gspread_secret_path,
+        sheet_name=admin_sheet_name,
+        worksheet_name=worksheet_name,
+    )
 
     # Get the scores sheet as a DF
+    sh = open_sheet(gspread_secret_path=gspread_secret_path, sheet_name=admin_sheet_name)
     scores_ws = sh.worksheet("Scores")
-    scores_df = pd.DataFrame(scores_ws.get_all_records())
+    scores_df = read_worksheet_as_df(
+        gspread_secret_path=gspread_secret_path,
+        sheet_name=admin_sheet_name,
+        worksheet_name="Scores",
+    )
 
     # For each player, get the sum of their scores for the week
     for player_name in player_names:
@@ -353,11 +362,14 @@ def update_admin_with_completed_games(
     the_odds_api_key: str,
 ) -> None:
     # Get the admin sheet
-    gc = gs.service_account(filename=gspread_secret_path)
-    sh = gc.open(admin_sheet_name)
+    sh = open_sheet(gspread_secret_path=gspread_secret_path, sheet_name=admin_sheet_name)
     worksheet_name = f"Week {week_number}"
     ws = sh.worksheet(worksheet_name)
-    df = pd.DataFrame(ws.get_all_records())
+    df = read_worksheet_as_df(
+        gspread_secret_path=gspread_secret_path,
+        sheet_name=admin_sheet_name,
+        worksheet_name=worksheet_name,
+    )
 
     # Find the game IDs from this week that do not yet have a winner
     to_update = []

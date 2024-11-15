@@ -5,6 +5,7 @@ import traceback
 from typing import Any, Callable, Dict, Set
 
 import gspread
+import pandas as pd
 import yaml
 from loguru import logger
 from pydantic import BaseModel
@@ -28,6 +29,51 @@ def update_cell(ws: gspread.worksheet, row: int, col: int, value: Any) -> None:
         value (Any): Value to insert
     """
     ws.update_cell(row, col, value)
+
+
+@retry(
+    wait=wait_exponential(max=90),
+    before_sleep=before_sleep_log(logger, logging.INFO),
+    after=after_log(logger, logging.INFO),
+)
+def open_sheet(gspread_secret_path: str, sheet_name: str) -> gspread.worksheet:
+    """Open the given spreadsheet object, with retries to avoid rate limiting and 500 errors
+
+    Args:
+        gspread_secret_path (str): Path to the spread secret file
+        sheet_name (str): Google sheet name to open
+
+    Returns:
+        gspread.worksheet: Gspread workshet object
+    """
+    gc = gspread.service_account(filename=gspread_secret_path)
+    return gc.open(sheet_name)
+
+
+@retry(
+    wait=wait_exponential(max=90),
+    before_sleep=before_sleep_log(logger, logging.INFO),
+    after=after_log(logger, logging.INFO),
+)
+def read_worksheet_as_df(
+    gspread_secret_path: str, sheet_name: str, worksheet_name: str
+) -> pd.DataFrame:
+    """Read a worksheet's contents into a pandas DataFrame, with retries to avoid rate limiting
+
+    Args:
+        gspread_secret_path (str): Path to the spread secret file
+        sheet_name (str): Google sheet name to open
+        worksheet_name (str): Name of the worksheet within the google sheet
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the worksheet's content
+    """
+    sh = open_sheet(
+        gspread_secret_path=gspread_secret_path,
+        sheet_name=sheet_name,
+    )
+    ws = sh.worksheet(worksheet_name)
+    return pd.DataFrame(ws.get_all_records())
 
 
 def read_config(config_path: str, config_class: BaseModel) -> BaseModel:
